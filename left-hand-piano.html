@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Southpaw Keys</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #fff;
+    color: #bbb;
+    font-family: 'DM Mono', monospace;
+    font-weight: 300;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .title {
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4em;
+    color: #ccc;
+    margin-bottom: 2.5rem;
+  }
+
+  .piano {
+    display: flex;
+    border-top: 1px solid #ccc;
+  }
+
+  .octave-group {
+    position: relative;
+    display: flex;
+  }
+
+  .key {
+    width: 42px;
+    height: 170px;
+    border-right: 1px solid #ccc;
+    border-bottom: 1px solid #ccc;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 10px;
+    background: #fff;
+    transition: background 0.04s;
+  }
+
+  .octave-group:first-child .key:first-of-type {
+    border-left: 1px solid #ccc;
+  }
+
+  .key.active {
+    background: #f0f0f0;
+  }
+
+  .key.black-key {
+    width: 26px;
+    height: 105px;
+    position: absolute;
+    z-index: 2;
+    border: 1px solid #333;
+    border-top: none;
+    background: #1a1a1a;
+    padding-bottom: 8px;
+  }
+
+  .key.black-key.active {
+    background: #333;
+  }
+
+  .key-label {
+    font-size: 0.5rem;
+    color: #ccc;
+    pointer-events: none;
+  }
+
+  .key.active .key-label {
+    color: #999;
+  }
+
+  .key.black-key .key-label {
+    color: #555;
+  }
+
+  .key.black-key.active .key-label {
+    color: #888;
+  }
+
+  .note-name {
+    font-size: 0.4rem;
+    color: #ddd;
+    pointer-events: none;
+    margin-bottom: 2px;
+  }
+
+  .key.active .note-name {
+    color: #aaa;
+  }
+
+  .key.black-key .note-name {
+    color: #444;
+  }
+
+  .key.black-key.active .note-name {
+    color: #777;
+  }
+
+  .oct-num {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.4rem;
+    color: #ddd;
+  }
+
+  .info {
+    margin-top: 2.8rem;
+    font-size: 0.45rem;
+    letter-spacing: 0.25em;
+    color: #ccc;
+    text-transform: uppercase;
+    text-align: center;
+    line-height: 2;
+  }
+</style>
+</head>
+<body>
+
+<div class="title">southpaw keys</div>
+<div id="piano" class="piano"></div>
+
+<div class="info">
+  home row · top row · bottom row<br>
+  z/x shift octave &nbsp; <span id="oct-display">3–5</span>
+</div>
+
+<script>
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let ctx = null;
+const act = {};
+let base = 3;
+
+function audio() {
+  if (!ctx) ctx = new AudioCtx();
+  if (ctx.state === 'suspended') ctx.resume();
+}
+
+const F = { C:261.63,'C#':277.18,D:293.66,'D#':311.13,E:329.63,F:349.23,'F#':369.99,G:392,'G#':415.3,A:440,'A#':466.16,B:493.88 };
+
+function noteOn(n, o, el) {
+  audio();
+  const id = n + o;
+  if (act[id]) return;
+  const f = F[n] * Math.pow(2, o - 4), t = ctx.currentTime;
+  const osc = ctx.createOscillator(), g = ctx.createGain(), fl = ctx.createBiquadFilter();
+  osc.type = 'triangle'; fl.type = 'lowpass'; fl.frequency.value = 1600;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.16, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.07, t + 0.25);
+  osc.connect(fl); fl.connect(g); g.connect(ctx.destination);
+  osc.frequency.value = f; osc.start();
+  const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+  o2.type = 'sine'; o2.frequency.value = f * 2;
+  g2.gain.setValueAtTime(0, t);
+  g2.gain.linearRampToValueAtTime(0.03, t + 0.01);
+  g2.gain.exponentialRampToValueAtTime(0.004, t + 0.12);
+  o2.connect(g2); g2.connect(ctx.destination); o2.start();
+  act[id] = { osc, g, o2, g2 };
+  if (el) el.classList.add('active');
+}
+
+function noteOff(n, o, el) {
+  const id = n + o, a = act[id];
+  if (!a) return;
+  const t = ctx.currentTime;
+  a.g.gain.cancelScheduledValues(t); a.g.gain.setValueAtTime(a.g.gain.value, t);
+  a.g.gain.exponentialRampToValueAtTime(0.001, t + 0.2); a.osc.stop(t + 0.25);
+  a.g2.gain.cancelScheduledValues(t); a.g2.gain.setValueAtTime(a.g2.gain.value, t);
+  a.g2.gain.exponentialRampToValueAtTime(0.001, t + 0.12); a.o2.stop(t + 0.15);
+  delete act[id];
+  if (el) el.classList.remove('active');
+}
+
+const W = ['B','A','G','F','E','D','C'];
+const BK = [
+  { n:'A#', a:0 }, { n:'G#', a:1 }, { n:'F#', a:2 },
+  { n:'D#', a:4 }, { n:'C#', a:5 },
+];
+
+const binds = [
+  { w:['7','6','5','4','3','2','1'], b:['-','0','9','8','\\'] },
+  { w:[';','l','k','j','h','g','f'], b:['p','o','i','u','y'] },
+  { w:['/','.',',','m','n','b','v'], b:["'","[","]",'q','w'] },
+];
+
+const km = {};
+
+function build() {
+  const p = document.getElementById('piano');
+  p.innerHTML = '';
+  Object.keys(km).forEach(k => delete km[k]);
+
+  for (let g = 0; g < 3; g++) {
+    const oct = base + 2 - g;
+    const grp = document.createElement('div');
+    grp.className = 'octave-group';
+
+    W.forEach((note, i) => {
+      const key = document.createElement('div');
+      key.className = 'key';
+      const uid = note + oct;
+      key.dataset.uid = uid;
+
+      const nn = document.createElement('div');
+      nn.className = 'note-name';
+      nn.textContent = note + oct;
+      const lb = document.createElement('div');
+      lb.className = 'key-label';
+      lb.textContent = binds[g].w[i] || '';
+
+      key.append(nn, lb);
+      key.addEventListener('pointerdown', e => { e.preventDefault(); noteOn(note, oct, key); });
+      key.addEventListener('pointerup', () => noteOff(note, oct, key));
+      key.addEventListener('pointerleave', () => noteOff(note, oct, key));
+      grp.appendChild(key);
+
+      const bk = binds[g].w[i];
+      if (bk) km[bk.toLowerCase()] = { n: note, o: oct, uid };
+    });
+
+    BK.forEach((bp, i) => {
+      const key = document.createElement('div');
+      key.className = 'key black-key';
+      const uid = bp.n + oct + 'b';
+      key.dataset.uid = uid;
+      key.style.left = (bp.a * 42 + 42 - 13) + 'px';
+
+      const nn = document.createElement('div');
+      nn.className = 'note-name';
+      nn.textContent = bp.n + oct;
+      const lb = document.createElement('div');
+      lb.className = 'key-label';
+      lb.textContent = binds[g].b[i] || '';
+
+      key.append(nn, lb);
+      key.addEventListener('pointerdown', e => { e.preventDefault(); noteOn(bp.n, oct, key); });
+      key.addEventListener('pointerup', () => noteOff(bp.n, oct, key));
+      key.addEventListener('pointerleave', () => noteOff(bp.n, oct, key));
+      grp.appendChild(key);
+
+      const bk = binds[g].b[i];
+      if (bk) km[bk.toLowerCase()] = { n: bp.n, o: oct, uid };
+    });
+
+    const ol = document.createElement('div');
+    ol.className = 'oct-num';
+    ol.textContent = oct;
+    grp.appendChild(ol);
+    p.appendChild(grp);
+  }
+
+  document.getElementById('oct-display').textContent = `${base}–${base+2}`;
+}
+
+const held = new Set();
+
+document.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z') { base = Math.max(1, base - 1); build(); return; }
+  if (k === 'x') { base = Math.min(5, base + 1); build(); return; }
+  const m = km[k];
+  if (m && !held.has(k)) {
+    held.add(k);
+    const el = document.querySelector(`[data-uid="${m.uid}"]`);
+    noteOn(m.n, m.o, el);
+  }
+});
+
+document.addEventListener('keyup', e => {
+  const k = e.key.toLowerCase();
+  const m = km[k];
+  if (m) {
+    held.delete(k);
+    const el = document.querySelector(`[data-uid="${m.uid}"]`);
+    noteOff(m.n, m.o, el);
+  }
+});
+
+build();
+</script>
+</body>
+</html>
