@@ -23,6 +23,40 @@
     user-select: none;
   }
 
+  .focus-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(255,255,255,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    cursor: pointer;
+    transition: opacity 0.3s;
+  }
+
+  .focus-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .focus-msg {
+    text-align: center;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: #999;
+    line-height: 2.2;
+  }
+
+  .focus-msg span {
+    display: block;
+    font-size: 1.2rem;
+    letter-spacing: 0;
+    margin-bottom: 0.5rem;
+    color: #bbb;
+  }
+
   .title {
     font-size: 0.55rem;
     text-transform: uppercase;
@@ -139,7 +173,14 @@
 </head>
 <body>
 
-<div class="title">Southpaw Piano</div>
+<div class="focus-overlay" id="focus-overlay">
+  <div class="focus-msg">
+    <span>♪</span>
+    click anywhere to enable keyboard
+  </div>
+</div>
+
+<div class="title">southpaw keys</div>
 <div id="piano" class="piano"></div>
 
 <div class="info">
@@ -152,6 +193,23 @@ const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let ctx = null;
 const act = {};
 let base = 3;
+let focused = false;
+
+const overlay = document.getElementById('focus-overlay');
+
+function activate() {
+  if (focused) return;
+  focused = true;
+  overlay.classList.add('hidden');
+  audio();
+  window.focus();
+}
+
+overlay.addEventListener('click', activate);
+document.addEventListener('click', activate);
+
+// Also try to grab focus on load
+window.addEventListener('load', () => { window.focus(); });
 
 function audio() {
   if (!ctx) ctx = new AudioCtx();
@@ -302,5 +360,7 @@ document.addEventListener('keyup', e => {
 
 build();
 </script>
+</body>
+</html>
 </body>
 </html>
